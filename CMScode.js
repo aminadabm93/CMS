@@ -56,9 +56,59 @@ function runSearch() {
   }
 
 function add(){
-
+    inquirer
+    .prompt({
+      name: "add",
+      type: "list",
+      message: "Which of the following would you like to add to?",
+      choices:["departments","employees","roles"]
+    })
+    .then(function(answer) {
+        
+        switch (answer.add){
+            case "departments":
+                addDepartment();
+                break;
+            case "employees":
+                addEmployee();
+                break;
+            case "roles":
+                addRole();
+                break;
+        }
+        // connection.query(query,function (err,res){
+        //     if (err) throw err;
+        //     console.table(res);
+        //     runSearch();
+        // });
+    });
 }
 
+function addDepartment(){
+    //inquire the department name and update db
+    inquirer
+    .prompt({
+        name:"department",
+        message:"What is the department name?",
+        type:"input",
+    })
+    .then(function(answer){
+        var query = "INSERT INTO departments(name) VALUES (?)";
+        connection.query(query,answer.department,function(err,res){
+            if (err) throw err;
+            runSearch();
+        });
+    });
+}
+
+function addEmployee(){
+    //inquire employee first, last, roleID, 
+    // inquirere if known manager ID then insert
+}
+
+function addRole(){
+    //inquire title, salary,department ID
+}
 function view(){
     inquirer
     .prompt({
@@ -72,16 +122,8 @@ function view(){
         connection.query(query,function (err,res){
             if (err) throw err;
             console.table(res);
+            runSearch();
         });
-        // switch(answer.view){
-        //     case "departments":
-        //         break;
-        //     case "employees":
-        //         break;
-        //     case "roles":
-        //         break;
-        // }
-
     });
 }
 
