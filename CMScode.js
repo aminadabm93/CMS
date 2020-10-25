@@ -137,6 +137,30 @@ function addEmployee(){
 
 function addRole(){
     //inquire title, salary,department ID
+    var roleQs = [{
+        message:"What is the role title?",
+        name:"title",
+        type:"input"
+    },{
+        message:"What is the salary?",
+        name:"salary",
+        type:"number"
+    },{
+        message:"What is the department id?",
+        name:"departmentID",
+        type:"number"
+    }];
+
+    inquirer
+    .prompt(roleQs).then(function(answer){
+        var query = "INSERT INTO roles(title,salary,department_id) VALUES(?,?,?)";
+        connection.query(query,[answer.title,answer.salary,answer.departmentID],function(err,res){
+            if (err) throw err;
+            console.log("You have successfuly added a role!");
+            runSearch();
+        });
+    });
+
 }
 function view(){
     inquirer
