@@ -1,6 +1,7 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
 const { connect } = require("http2");
+const { stringify } = require("querystring");
 
 var connection = mysql.createConnection({
   host: "localhost",
@@ -115,9 +116,9 @@ function addEmployee(){
         name:"lastName",
         type:"input"
     },{
-        message:"What is the employee's role id?",
+        message:"What is the employee's role?",
         name:"roleID",
-        type:"number"
+        type:""
     },{
         message:"If the employee has a manager id, input it. If none, input 0.",
         name:"managerID",
@@ -137,6 +138,18 @@ function addEmployee(){
 
 function addRole(){
     //inquire title, salary,department ID
+    
+    //gather list of departments to choose from
+    var departments=[];
+    connection.query("SELECT name from departments",function(err,res){
+        if (err) throw err;
+        //res.foreach(element => console.log(element.name));
+        for(var i=0; i<res.length;i++){
+            departments.push(res[i].name);
+        }
+    });
+
+
     var roleQs = [{
         message:"What is the role title?",
         name:"title",
@@ -146,15 +159,25 @@ function addRole(){
         name:"salary",
         type:"number"
     },{
-        message:"What is the department id?",
-        name:"departmentID",
-        type:"number"
+        message:"What is the department?",
+        name:"department",
+        type:"list",
+        choices:departments
     }];
 
     inquirer
     .prompt(roleQs).then(function(answer){
+        //query to get departmentID
+        //NEED TO GET DEPARTMENT ID BASED ON THEIR ANSWER CHOICE FROM ABOVE
+        var departmentQuery = "SELECT department_id FROM departments WHERE name = ?";
+        var department_id;
+        connection.query(departmentQuery,[answer.department],function(err,res){
+            if (err) throw err;
+            department_id=res[0].department_id;
+        });
+
         var query = "INSERT INTO roles(title,salary,department_id) VALUES(?,?,?)";
-        connection.query(query,[answer.title,answer.salary,answer.departmentID],function(err,res){
+        connection.query(query,[answer.title,answer.salary,department_id],function(err,res){
             if (err) throw err;
             console.log("You have successfuly added a role!");
             runSearch();
@@ -181,5 +204,5 @@ function view(){
 }
 
 function update(){
-
+    //must be able to change employee roles 
 }
