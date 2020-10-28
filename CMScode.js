@@ -106,32 +106,81 @@ function addDepartment(){
 
 function addEmployee(){
     //inquire employee first, last, roleID, 
-    // inquirere if known manager ID then insert
-    var employeeQs = [{
-        message:"What is the employee's first name?",
-        name:"firstName",
-        type:"input"
-    },{
-        message:"What is the employee's last name?",
-        name:"lastName",
-        type:"input"
-    },{
-        message:"What is the employee's role?",
-        name:"roleID",
-        type:""
-    },{
-        message:"If the employee has a manager id, input it. If none, input 0.",
-        name:"managerID",
-        type:"number"
-    }];
+    // gather list of all employees that that could be manager
+    
+    connection.query("SELECT first_name,last_name,employee_id from employees",function(err,res){
+        if (err) throw err;
+        //res.foreach(element => console.log(element.name));
+        var managerObjects=[];
+        var managerNames=[];
+        for(var i=0; i<res.length;i++){
+            managerObjects.push(res[i]);
+            var names = res[i].first_name + " " + res[i].last_name;
+            managerNames.push(names);
+        }
+        //incase the employee doesn't have a manager select none
+        managerNames.push("none");
+        managerObjects.push({first_name:"none",last_name:"none",employee_id:null});
 
-    inquirer
-    .prompt(employeeQs).then(function(answer){
-        var query = "INSERT INTO employees(first_name,last_name,role_id,manager_id) VALUES(?,?,?,?)";
-        connection.query(query,[answer.firstName,answer.lastName,answer.roleID,answer.managerID],function(err,res){
+        //get roles that the employee can be, save id too
+        var roleObjects = [];
+        var roleNames =[];
+        connection.query("SELECT title, role_id from roles",function (err,res){
             if (err) throw err;
-            console.log("You have successfuly added an employee!");
-            runSearch();
+            for(var i=0; i<res.length;i++){
+                roleObjects.push(res[i]);
+                roleNames.push(res[i].title);
+            } 
+            
+            var employeeQs = [{
+                message:"What is the employee's first name?",
+                name:"firstName",
+                type:"input"
+            },{
+                message:"What is the employee's last name?",
+                name:"lastName",
+                type:"input"
+            },{
+                message:"What is the employee's role?",
+                name:"role",
+                type:"list",
+                choices:roleNames
+            },{
+                message:"Select he employee's manager, otherwise select 'none'",
+                name:"manager",
+                type:"list",
+                choices:managerNames
+            }];
+
+            inquirer
+            .prompt(employeeQs).then(function(answer){
+                //get role ID
+                var roleIndex = roleNames.indexOf(answer.role);
+                var roleID = roleObjects[roleIndex].role_id;
+                //have to convertheir choices and find the id
+
+                if (answer.manager=="none"){
+                    var query = "INSERT INTO employees(first_name,last_name,role_id,manager_id) VALUES(?,?,?,?);";
+                
+                    connection.query(query,[answer.firstName,answer.lastName,roleID,null],function(err,res){
+                        if (err) throw err;
+                        console.log("You have successfuly added an employee with no manager!");
+                        runSearch();
+                    });
+                }
+                else{
+                    var managerIndex = managerNames.indexOf(answer.manager);
+                    var managerID = managerObjects[managerIndex].employee_id;
+
+                    var query = "INSERT INTO employees(first_name,last_name,role_id,manager_id) VALUES(?,?,?,?);";
+                    
+                    connection.query(query,[answer.firstName,answer.lastName,roleID,managerID],function(err,res){
+                        if (err) throw err;
+                        console.log("You have successfuly added an employee!");
+                        runSearch();
+                    });
+                }     
+            });
         });
     });
 }
@@ -147,6 +196,7 @@ function addRole(){
         for(var i=0; i<res.length;i++){
             departments.push(res[i].name);
         }
+        
     });
 
 
@@ -170,17 +220,17 @@ function addRole(){
         //query to get departmentID
         //NEED TO GET DEPARTMENT ID BASED ON THEIR ANSWER CHOICE FROM ABOVE
         var departmentQuery = "SELECT department_id FROM departments WHERE name = ?";
-        var department_id;
+        let department_id;
         connection.query(departmentQuery,[answer.department],function(err,res){
             if (err) throw err;
             department_id=res[0].department_id;
-        });
-
-        var query = "INSERT INTO roles(title,salary,department_id) VALUES(?,?,?)";
-        connection.query(query,[answer.title,answer.salary,department_id],function(err,res){
-            if (err) throw err;
-            console.log("You have successfuly added a role!");
-            runSearch();
+            console.log("dept_id "+ department_id);
+            
+            var query = "INSERT INTO roles(title,salary,department_id) VALUES(?,?,?)";
+            connection.query(query,[answer.title,answer.salary,department_id],function(err,res){
+                if (err) throw err;
+                runSearch();
+            });
         });
     });
 
@@ -194,15 +244,62 @@ function view(){
       choices:["departments","employees","roles"]
     })
     .then(function(answer) {
-        var query = "SELECT * from "+answer.view;
-        connection.query(query,function (err,res){
-            if (err) throw err;
-            console.table(res);
-            runSearch();
-        });
+
+        switch(answer.view){
+            case "departments":
+                connection.query("SELECT * FROM departments",function (err,res){
+                    if (err) throw err;
+                    console.table(res);
+                    runSearch();
+                });
+            break;
+
+            case "employees":
+                connection.query('SELECT employees.employee_id, employees.first_name, employees.last_name, roles.title, departments.name AS department, roles.salary, CONCAT(employees.first_name," ", employees.last_name) AS manager\nFROM employees \nINNER JOIN roles ON employees.role_id = roles.role_id\nINNER JOIN departments ON roles.department_id = departments.department_id\nLEFT JOIN employees AS mng ON employees.manager_id = employees.employee_id ',function (err,res){
+                    if (err) throw err;
+                    console.table(res);
+                    //console.log(res);
+                    runSearch();
+                });
+            break;
+
+            case "roles":
+                connection.query("SELECT roles.role_id,roles.title,roles.salary, departments.name as department FROM roles LEFT JOIN departments ON roles.department_id = departments.department_id",function(err,res){
+                    if (err) throw err;
+                    console.table(res);
+                    runSearch();
+                });
+            break;
+
+        }   
+
+        // var query = "SELECT * from "+answer.view;
+        // connection.query(query,function (err,res){
+        //     if (err) throw err;
+        //     console.table(res);
+        //     runSearch();
+        // });
     });
 }
 
 function update(){
     //must be able to change employee roles 
+    var employees=[];
+    connection.query("SELECT first_name, last_name,employee_id from employees",function(err,res){
+        if (err) throw err;
+        //save all employees as objects to array
+        for(var i=0; i<res.length;i++){
+            employees.push({fullName: res[i].first_name+" "+ res[i].last_name, id:res[i].employee_id});
+        }
+
+        inquirer
+        .prompt({
+            message:"Which employee would you like to update?",
+            name:"employeeChoice",
+            type:"list",
+            choices: employees.map(emp => emp.fullName)
+        });
+
+    });
+
 }
