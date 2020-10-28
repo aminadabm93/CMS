@@ -298,8 +298,38 @@ function update(){
             name:"employeeChoice",
             type:"list",
             choices: employees.map(emp => emp.fullName)
-        });
+        }).then(function(answer){
+            let empINDEX = employees.map(element => element.fullName).indexOf(answer.employeeChoice);
+            let employeeID = employees[empINDEX].id;
+            //query roles 
 
+            connection.query("SELECT role_id,title FROM roles",function(err,res){
+                if (err) throw err;
+                let roles = [];
+                for(var i=0; i<res.length;i++){
+                    roles.push({role_id:res[i].role_id, title:res[i].title});
+                }
+                //ask user for role 
+                inquirer
+                .prompt({
+                    message:"Which role would you like to change it to?",
+                    name:"roleChoice",
+                    type:"list",
+                    choices: roles.map(emp => emp.title)
+                }).then(function(answer){
+                    //save roleID
+                    let roleIndex = roles.map(element => element.title).indexOf(answer.roleChoice);
+                    let roleID = roles[roleIndex].role_id;
+
+                    connection.query("UPDATE employees SET role_id=? WHERE employee_id=?",[roleID,employeeID],function(err,res){
+                    if(err) throw err;
+                    console.log("You successfully edited the employee role!");
+                    runSearch();
+                    });
+                });
+                
+            });          
+        });
     });
 
 }
